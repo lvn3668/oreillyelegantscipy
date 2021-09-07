@@ -8,6 +8,8 @@ from scipy import stats
 from sklearn import preprocessing
 from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import dendrogram, leaves_list, fcluster
+import itertools as it
+from collections import defaultdict
 
 
 def clear_spines(axes):
@@ -136,7 +138,12 @@ def binned_boxplot(x, y):
     ax.boxplot(binned_y)
 
 
-# def reduce_xaxis_labels(Ax, factor):
+def reduce_xaxis_labels(ax, factor):
+    plt.setp(ax.xaxis.get_ticklabels(), visible = False)
+    for label in ax.xaxis.get_ticklabels()[factor-1::factor]:
+        label.setvisible(True)
+
+
 
 def quantile_norm(x):
     quantiles = np.mean(np.sort(x, axis=0), axis=1)
@@ -164,6 +171,28 @@ def plot_col_density(data):
 
 ##########################################################
 
+def class_boxplot(data, classes, colors=None, **kwargs):
+    all_classes = sorted(set(classes))
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    class2color = dict(zip(all_classes, it.cycle(colors)))
+    class2data = defaultdict(list)
+    for distrib, cls in zip(data, classes):
+        for c in all_classes:
+            class2data[c].append([])
+        class2data[cls][-1] = distrib
+
+    fig, ax = plt.subplots()
+    lines = []
+    for cls in all_classes:
+        for key in ['boxprops', 'whiskerprops', 'flierprops']:
+            kwargs.setdefault(key, {}).update(color=class2color[cls])
+        box = ax.boxplot(class2data[cls],**kwargs)
+        lines.append(box['whiskers'][0])
+    ax.legend(lines, all_classes)
+    return ax
+
+##########################################################
+
 def most_variable_rows(data, *, n=375):
     rowvar = np.var(data, axis=1)
     sort_indices = np.argsort(rowvar)[-n:]
@@ -180,15 +209,17 @@ def bicluster(data, linkage_method='average', distance_metric='correlation'):
 
 
 # Press the green button in the gutter to run the script.
-# if __name__ == '__main__':
-    # print_hi('PyCharm')
+if __name__ == '__main__':
     data_table = pd.read_csv(r"C:\Users\visu4\Documents\wcgna\data\counts.csv", index_col=0)
     print(data_table.iloc[:5, :5])
+    samples = list(data_table.columns)
     print("Genes in data_table: ", data_table.shape[0])
     print("Index for data table")
     print(data_table.index)
     gene_info = pd.read_csv(r"C:\Users\visu4\Documents\wcgna\data\genes.csv", index_col=0)
     print(gene_info.iloc[:5, :5])
+    print( "Genes in data table ",  data_table.shape[0])
+    print("Genes in gene info", gene_info.shape[0])
     matched_index = pd.Index.intersection(data_table.index, gene_info.index)
     print(matched_index)
     print(matched_index.shape[0])
@@ -199,40 +230,59 @@ def bicluster(data, linkage_method='average', distance_metric='correlation'):
                               dtype=int)
     print(counts.shape)
     print(gene_lengths.shape)
-
     total_counts = np.sum(counts, axis=0)  # sum columns together
     density = stats.kde.gaussian_kde(total_counts)
-    # x = np.arange(min(total_counts), max(total_counts), 10000)
+    x = np.arange(min(total_counts), max(total_counts), 10000)
     # Make the density plot
-    # fig, ax = plt.subplots()
-    # ax.plot(x, density(x))
-    # ax.set_xlabel("Total counts per individual")
-    # ax.set_ylabel("Density")
+    fig, ax = plt.subplots()
+    ax.plot(x, density(x))
+    ax.set_xlabel("Total counts per individual")
+    ax.set_ylabel("Density")
 
-    # plt.show()
+    plt.show()
     print(f'Count statistics:\n  min:  {np.min(total_counts)}'
           f'\n  mean: {np.mean(total_counts)}'
           f'\n  max:  {np.max(total_counts)}')
 
-    # np.random.seed(seed=7)  # Set seed so we will get consistent results
+    np.random.seed(seed=7)  # Set seed so we will get consistent results
     # Randomly select 70 samples
-    # samples_index = np.random.choice(range(counts.shape[1]), size=70, replace=False)
-    # counts_subset = counts[:, samples_index]
+    samples_index = np.random.choice(range(counts.shape[1]), size=70, replace=False)
+    counts_subset = counts[:, samples_index]
 
-    # fig, ax = plt.subplots(figsize=(4.8, 2.4))
-    # ax.boxplot(counts_subset)
-    # ax.set_xlabel("Individuals")
-    # ax.set_ylabel("Gene expression counts")
-    # Box plot of expression values before normalization
-    # ax.boxplot(np.log(counts_subset+1))
-    # plt.show()
 
-    # Plot of normalized counts
+    fig, ax = plt.subplots(figsize=(4.8, 2.4))
+    ax.boxplot(counts_subset)
+    ax.set_xlabel("Individuals")
+    ax.set_ylabel("Gene expression counts")
+    reduce_xaxis_labels(ax, 5)
+    plt.show()
+
+    # log scale gene expression counts per individual
+    fig, ax = plt.subplots(figsize=(4.8, 2.4))
+    ax.boxplot(np.log(counts_subset+1))
+    ax.set_xlabel('Individuals')
+    ax.set_ylabel("Log Gene expression counts")
+    reduce_xaxis_labels(ax, 5)
+    plt.show()
+
+    # Plot of normalized counts where normalization is by library size
     counts_lib_norm = counts / total_counts * 1000000
-    # counts_subset_lib_norm = counts_lib_norm[:, samples_index]
-    # fig, ax = plt.subplots(figsize=(4.8, 2.4))
-    # ax.boxplot(np.log(counts_subset_lib_norm + 1))
-    # plt.show()
+    counts_subset_lib_norm = counts_lib_norm[:, samples_index]
+    fig, ax = plt.subplots(figsize=(4.8, 2.4))
+    ax.boxplot(np.log(counts_subset_lib_norm + 1))
+    ax.set_xlabel("Individuals")
+    ax.set_ylabel("Log gene expression counts normalized by library size")
+    reduce_xaxis_labels(ax, 5)
+    plt.show()
+
+    log_counts_3 = list(np.log(counts.T[:3] +1))
+    log_ncounts_3 = list(np.log(counts_lib_norm.T[:3]+1))
+    ax = class_boxplot(log_ncounts_3+log_counts_3, ['raw counts']*3 + ['normalized by library size']*3,
+                       labels=[1,2,3,1,2,3])
+    ax.set_xlabel('sample number')
+    ax.set_ylabel('log gene expression counts')
+    plt.show()
+    exit()
 
     # Normalize counts using rpkm
     counts_rpkm = readsperkilobasepermilliontranscripts(counts, gene_lengths)
@@ -282,8 +332,8 @@ def bicluster(data, linkage_method='average', distance_metric='correlation'):
     print(k2)
     print(pval)
 
-    # filename = 'data/counts.txt'
-    # data_table =pd.read_csv(filename, index_col=0)
+    filename = 'data/counts.txt'
+    data_table =pd.read_csv(filename, index_col=0)
     print(data_table.iloc[:5, :5])
     counts = data_table.values
     log_counts = np.log(counts + 1)
