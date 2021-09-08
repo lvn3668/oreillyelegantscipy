@@ -11,13 +11,12 @@ from scipy.cluster.hierarchy import dendrogram, leaves_list, fcluster
 import itertools as it
 from collections import defaultdict
 
-
+##########################################################
 def clear_spines(axes):
     for loc in ['left', 'right', 'top', 'bottom']:
         axes.spines[loc].set_visible(False)
     axes.set_xticks([])
     axes.set_yticks([])
-
 
 ##########################################################
 
@@ -48,9 +47,7 @@ def plot_bicluster(data, row_linkage, col_linkage, row_nclusters=10, col_ncluste
     plt.colorbar(im, cax=axcolor)
     plt.show()
 
-
-
-
+##########################################################
 def survival_distribution_function(lifetimes, right_censored=None):
     n_obs = len(lifetimes)
     rc = np.isnan(lifetimes)
@@ -61,7 +58,7 @@ def survival_distribution_function(lifetimes, right_censored=None):
     ys = np.linspace(1,0,n_obs+1)
     ys = ys[:len(xs)]
     return xs, ys
-
+##########################################################
 def plot_cluster_survival_curves(clusters, sample_names, patients, censor=True):
     fig, ax = plt.subplots()
     if type(clusters) == np.ndarray:
@@ -107,7 +104,7 @@ def plot_cluster_survival_curves(clusters, sample_names, patients, censor=True):
 
     print("Before Plot.show")
     plt.show()
-
+##########################################################
 # Deseq normalization
 def size_factors(counts):
     counts = counts[np.alltrue(counts)]
@@ -117,8 +114,8 @@ def size_factors(counts):
     sf = np.exp(np.median(logcounts - loggeommeans, axis=0))
     return sf
 
-
-def readsperkilobasepermilliontranscripts(counts, lengths):
+##########################################################
+def rpkm(counts, lengths):
     N = np.sum(counts, axis=0)  # sum each column to get total reads per sample
     L = lengths
     C = counts
@@ -127,24 +124,31 @@ def readsperkilobasepermilliontranscripts(counts, lengths):
 
     return (normed)
 
-
-def binned_boxplot(x, y):
+##########################################################
+def binned_boxplot(x, y, *, xlabel='gene length(log scale)', ylabel='average log counts'):
     x_hist, x_bins = np.histogram(x)
     x_bin_idxs = np.digitize(x, x_bins[:-1])
     binned_y = [
         y[x_bin_idxs == i]
         for i in range(np.max(x_bin_idxs))]
     fig, ax = plt.subplots(figsize=(4.8, 1))
-    ax.boxplot(binned_y)
+    plt.title("Binned box plot of gene length(log scale) v/s average log counts")
+    x_bin_centers = (x_bins[1:] + x_bins[:-1])/2
+    x_ticklabels = np.round(np.exp(x_bin_centers)).astype(int)
+    ax.boxplot(binned_y, labels=x_ticklabels)
+    reduce_xaxis_labels(ax, 10)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    plt.show()
 
-
+##########################################################
 def reduce_xaxis_labels(ax, factor):
     plt.setp(ax.xaxis.get_ticklabels(), visible = False)
     for label in ax.xaxis.get_ticklabels()[factor-1::factor]:
         label.setvisible(True)
 
 
-
+##########################################################
 def quantile_norm(x):
     quantiles = np.mean(np.sort(x, axis=0), axis=1)
     ranks = np.apply_along_axis(stats.rankdata, 0, x)
@@ -157,7 +161,7 @@ def quantile_norm_log(x):
     logx = np.log(x + 1)
     logxn = quantile_norm(logx)
     return logxn
-    ##########################################################
+##########################################################
 
 
 def plot_col_density(data):
@@ -207,7 +211,7 @@ def bicluster(data, linkage_method='average', distance_metric='correlation'):
     x_rows = linkage(data.T, method=linkage_method, metric=distance_metric)
     return x_rows, y_cols
 
-
+##########################################################
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     data_table = pd.read_csv(r"C:\Users\visu4\Documents\wcgna\data\counts.csv", index_col=0)
@@ -238,7 +242,7 @@ if __name__ == '__main__':
     ax.plot(x, density(x))
     ax.set_xlabel("Total counts per individual")
     ax.set_ylabel("Density")
-
+    plt.title("Plot of total counts per individual v/s density")
     plt.show()
     print(f'Count statistics:\n  min:  {np.min(total_counts)}'
           f'\n  mean: {np.mean(total_counts)}'
@@ -255,6 +259,7 @@ if __name__ == '__main__':
     ax.set_xlabel("Individuals")
     ax.set_ylabel("Gene expression counts")
     reduce_xaxis_labels(ax, 5)
+    plt.title("Individuals v/s gene expression counts")
     plt.show()
 
     # log scale gene expression counts per individual
@@ -263,6 +268,7 @@ if __name__ == '__main__':
     ax.set_xlabel('Individuals')
     ax.set_ylabel("Log Gene expression counts")
     reduce_xaxis_labels(ax, 5)
+    plt.title("Individuals v/s log gene expr counts")
     plt.show()
 
     # Plot of normalized counts where normalization is by library size
@@ -270,6 +276,7 @@ if __name__ == '__main__':
     counts_subset_lib_norm = counts_lib_norm[:, samples_index]
     fig, ax = plt.subplots(figsize=(4.8, 2.4))
     ax.boxplot(np.log(counts_subset_lib_norm + 1))
+    plt.title("Plot of log gene expr counts normalized by lib size spread over individuals")
     ax.set_xlabel("Individuals")
     ax.set_ylabel("Log gene expression counts normalized by library size")
     reduce_xaxis_labels(ax, 5)
@@ -281,21 +288,50 @@ if __name__ == '__main__':
                        labels=[1,2,3,1,2,3])
     ax.set_xlabel('sample number')
     ax.set_ylabel('log gene expression counts')
+    plt.title("Sample number v/s log gene expression counts")
     plt.show()
-    exit()
+
+    print("Gene expression counts normalized by library size")
+    log_of_gene_expr_counts_normalized_by_lib_size = np.log(counts_lib_norm+1)
+    mean_log_counts = np.mean(log_of_gene_expr_counts_normalized_by_lib_size, axis=1)
+    log_gene_lengths = np.log(gene_lengths)
+    print(log_of_gene_expr_counts_normalized_by_lib_size)
+    print("Mean log counts")
+    print(mean_log_counts)
+    print("Log gene lengths")
+    print(log_gene_lengths)
+    binned_boxplot(x=log_gene_lengths, y=mean_log_counts)
 
     # Normalize counts using rpkm
-    counts_rpkm = readsperkilobasepermilliontranscripts(counts, gene_lengths)
+    counts_rpkm = rpkm(counts, gene_lengths)
+    print("Gene expression counts normalizedd by reads per kilobase per million")
     print(counts_rpkm)
     np.seterr(invalid='ignore')
     log_counts = np.log(counts_rpkm + 1)
     mean_log_counts = np.mean(log_counts, axis=1)
     log_gene_lengths = np.log(gene_lengths)
 
+    binned_boxplot(x=log_gene_lengths, y=mean_log_counts)
+    #######################################################
+
+    gene_idxs = np.array([80, 186])
+    gene1, gene2 = gene_names[gene_idxs]
+    len1, len2 = gene_lengths[gene_idxs]
+    gene_labels = [f'{gene1}, {len1}bp', f'{gene2}, {len2}bp' ]
+    log_counts = list(np.log(counts[gene_idxs]+1))
+    log_ncounts = list(np.log(counts_rpkm[gene_idxs]+1))
+    ax = class_boxplot(log_counts, ['raw counts']*3, labels=gene_labels)
+    ax.set_xlabel('Genes')
+    ax.set_ylabel('log gene expression counts over all samples')
+    ax = class_boxplot(log_ncounts, ['RPKM normalized']*3, labels=gene_labels)
+    ax.set_xlabel('Genes')
+    ax.set_ylabel(' log RPKM gene expression counts over all samples')
+    #plt.show()
     print(log_counts)
     print(mean_log_counts)
     print(log_gene_lengths)
-
+    plt.show()
+    exit()
     #######################################################
     # plt.hist(total_counts)
     # plt.show()
