@@ -1,5 +1,5 @@
-# Author: Elegant SciPy (most significant food consumption / food network visualization
-# )
+# Author: Elegant SciPy (most significant food consumption / food network visualization)
+#
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
