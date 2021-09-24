@@ -4,6 +4,22 @@ from scipy import ndimage as ndi
 from scipy import optimize
 import numpy as np
 
+def downsample2x(image):
+    offsets = [((s+1)%2)/2 for s in image.shape]
+    slices = [slice(offset, end, 2) for offset, end in zip(offsets, image.shape)]
+    coords = np.mgrid[slices]
+    return ndi.map_coordinates(image, coords, order=1)
+
+def gaussian_pyramid(image, levels=6):
+    pyramid = [image]
+    for level in range(levels -1):
+        blurred = ndi.gaussian_filter(image, sigma=2/3)
+        image =  downsample2x(image)
+        pyramid.append(image)
+
+    return reversed(pyramid)
+
+
 def astronaut_shift_error(shift, image):
     corrected = ndi.shift(image, (0, shift))
     return mse(astronaut, corrected)
